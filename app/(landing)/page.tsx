@@ -31,12 +31,12 @@ export default function Home() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="hidden md:block" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage>{activeSession ? "Chat" : "Dashboard"}</BreadcrumbPage>
+                                <BreadcrumbPage>{activeSession ? activeSession : "Dashboard"}</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
                 </header>
-                <div className="flex flex-1 flex-col overflow-hidden bg-background min-h-0">
+                <div className="flex flex-1 flex-col bg-background min-h-0">
                     <ChatWindow sessionKey={activeSession} />
                 </div>
             </SidebarInset>

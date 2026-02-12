@@ -55,13 +55,13 @@ export default function ChatWindow({ sessionKey }: ChatWindowProps) {
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
+    // const scrollToBottom = () => {
+    //     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // };
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
+    // useEffect(() => {
+    //     scrollToBottom();
+    // }, [messages]);
 
     // Fetch chat history when session changes
     useEffect(() => {
@@ -176,7 +176,7 @@ export default function ChatWindow({ sessionKey }: ChatWindowProps) {
     return (
         <div className="flex flex-col flex-1 h-full min-h-0 bg-background relative">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+            {/* <div className="px-6 py-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
                 <div className="flex items-center space-x-3 max-w-4xl mx-auto w-full">
                     <Avatar className="h-10 w-10 border border-border shadow-sm">
                         <AvatarFallback className="bg-primary/10 text-primary">
@@ -191,7 +191,7 @@ export default function ChatWindow({ sessionKey }: ChatWindowProps) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> */}
 
             {/* Messages */}
             <ScrollArea className="flex-1 bg-muted/5 p-6">
