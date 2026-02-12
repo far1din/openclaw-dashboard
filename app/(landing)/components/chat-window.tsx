@@ -21,16 +21,27 @@ function extractTextFromContent(content: unknown): string {
     if (typeof content === "string") return content;
     if (Array.isArray(content)) {
         return content
-            .map((block: { type?: string; text?: string; thinking?: string; name?: string; content?: { text?: string }[] }) => {
-                if (block.type === "text" && block.text) return block.text;
-                if (block.type === "thinking" && block.thinking) return `[thinking] ${block.thinking}`;
-                if (block.type === "toolCall" && block.name) return `[tool call: ${block.name}]`;
-                if (block.type === "toolResult") {
-                    const text = block.content?.map((c) => c.text).filter(Boolean).join("\n");
-                    return text ? `[tool result: ${text}]` : "[tool result]";
+            .map(
+                (block: {
+                    type?: string;
+                    text?: string;
+                    thinking?: string;
+                    name?: string;
+                    content?: { text?: string }[];
+                }) => {
+                    if (block.type === "text" && block.text) return block.text;
+                    if (block.type === "thinking" && block.thinking) return `[thinking] ${block.thinking}`;
+                    if (block.type === "toolCall" && block.name) return `[tool call: ${block.name}]`;
+                    if (block.type === "toolResult") {
+                        const text = block.content
+                            ?.map((c) => c.text)
+                            .filter(Boolean)
+                            .join("\n");
+                        return text ? `[tool result: ${text}]` : "[tool result]";
+                    }
+                    return "";
                 }
-                return "";
-            })
+            )
             .filter(Boolean)
             .join("\n");
     }
@@ -118,7 +129,9 @@ export default function ChatWindow({ sessionKey }: ChatWindowProps) {
                     const validRoles: Message["role"][] = ["user", "assistant", "system", "tool"];
                     const r = m.role;
                     const role: Message["role"] =
-                        typeof r === "string" && validRoles.includes(r as Message["role"]) ? (r as Message["role"]) : "assistant";
+                        typeof r === "string" && validRoles.includes(r as Message["role"])
+                            ? (r as Message["role"])
+                            : "assistant";
                     setMessages((prev) => [
                         ...prev,
                         {
@@ -173,7 +186,7 @@ export default function ChatWindow({ sessionKey }: ChatWindowProps) {
         <div className="flex flex-col flex-1 h-full min-h-0 bg-background relative">
             <div
                 ref={scrollContainerRef}
-                className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/5 p-6 min-h-0"
+                className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/5 p-6 min-h-0 pb-10!"
             >
                 <div className="space-y-6 max-w-4xl mx-auto w-full">
                     {loading && (
