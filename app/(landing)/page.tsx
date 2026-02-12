@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AppSidebar } from "./components/app-sidebar";
 import ChatWindow from "./components/chat-window";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -17,9 +17,25 @@ import {
 export default function Home() {
     const [activeSession, setActiveSession] = useState<string | null>(null);
 
+    // When an agent is clicked, create a fresh session key for a new conversation
+    const handleSelectAgent = useCallback((agentId: string) => {
+        const sessionId = `web-${Date.now().toString(36)}`;
+        const sessionKey = `agent:${agentId}:${sessionId}`;
+        setActiveSession(sessionKey);
+    }, []);
+
+    // Derive a readable label from the session key (e.g. "agent:scout:web-abc" → "scout")
+    const breadcrumbLabel = activeSession
+        ? activeSession.split(":")[1] ?? activeSession
+        : "Dashboard";
+
     return (
         <SidebarProvider style={{ height: "100vh", overflow: "hidden" }}>
-            <AppSidebar onSelectSession={setActiveSession} activeSessionKey={activeSession} />
+            <AppSidebar
+                onSelectSession={setActiveSession}
+                onSelectAgent={handleSelectAgent}
+                activeSessionKey={activeSession}
+            />
             <SidebarInset className="flex flex-col h-full overflow-hidden">
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-background z-10">
                     <SidebarTrigger className="-ml-1" />
@@ -31,7 +47,7 @@ export default function Home() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="hidden md:block" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage>{activeSession ? activeSession : "Dashboard"}</BreadcrumbPage>
+                                <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>

@@ -168,6 +168,9 @@ export default function ChatWindow({ sessionKey }: ChatWindowProps) {
         }
     };
 
+    // Extract agent name from session key (e.g. "agent:scout:web-abc" → "scout")
+    const agentName = sessionKey?.split(":")[1] ?? null;
+
     if (!sessionKey) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-muted/10 text-muted-foreground p-8 text-center animate-in fade-in duration-500">
@@ -176,7 +179,7 @@ export default function ChatWindow({ sessionKey }: ChatWindowProps) {
                 </div>
                 <h3 className="text-lg font-medium text-foreground">No Session Selected</h3>
                 <p className="max-w-sm mt-2 text-muted-foreground">
-                    Select an active agent session from the sidebar to view history and start chatting.
+                    Click an agent from the sidebar to start a new conversation, or select an existing session.
                 </p>
             </div>
         );
@@ -191,6 +194,19 @@ export default function ChatWindow({ sessionKey }: ChatWindowProps) {
                 <div className="space-y-6 max-w-4xl mx-auto w-full">
                     {loading && (
                         <div className="text-center text-sm text-muted-foreground py-4">Loading history...</div>
+                    )}
+                    {!loading && messages.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-500">
+                            <div className="bg-background p-3 rounded-full shadow-sm mb-3 border border-border">
+                                <Bot size={32} className="text-muted-foreground/50" />
+                            </div>
+                            <h3 className="text-base font-medium text-foreground">
+                                {agentName ? `Chat with ${agentName}` : "New Conversation"}
+                            </h3>
+                            <p className="max-w-xs mt-1.5 text-sm text-muted-foreground">
+                                Send a message below to start the conversation.
+                            </p>
+                        </div>
                     )}
                     {messages.map((msg, idx) => (
                         <div

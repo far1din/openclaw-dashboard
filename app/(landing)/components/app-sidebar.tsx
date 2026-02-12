@@ -35,10 +35,11 @@ type Session = {
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
     onSelectSession: (sessionKey: string) => void;
+    onSelectAgent?: (agentId: string) => void;
     activeSessionKey?: string | null;
 }
 
-export function AppSidebar({ onSelectSession, activeSessionKey, ...props }: AppSidebarProps) {
+export function AppSidebar({ onSelectSession, onSelectAgent, activeSessionKey, ...props }: AppSidebarProps) {
     const { call, isConnected } = useOpenClaw();
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(false);
@@ -112,7 +113,7 @@ export function AppSidebar({ onSelectSession, activeSessionKey, ...props }: AppS
                 </div>
             </SidebarHeader>
             <SidebarContent>
-                <AgentList />
+                <AgentList onSelectAgent={onSelectAgent} />
                 <SidebarGroup>
                     <SidebarGroupLabel>Sessions</SidebarGroupLabel>
                     <SidebarMenu>

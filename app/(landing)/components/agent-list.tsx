@@ -45,7 +45,11 @@ const ACTIVE_THRESHOLD_MS = 60 * 60 * 1000;
 // Component
 // ---------------------------------------------------------------------------
 
-export function AgentList() {
+interface AgentListProps {
+    onSelectAgent?: (agentId: string) => void;
+}
+
+export function AgentList({ onSelectAgent }: AgentListProps) {
     const { call, isConnected, helloPayload } = useOpenClaw();
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(false);
@@ -155,7 +159,11 @@ export function AgentList() {
 
                     {agents.map((agent) => (
                         <SidebarMenuItem key={agent.id} className="group/agent">
-                            <SidebarMenuButton className="h-auto py-2 cursor-default" asChild>
+                            <SidebarMenuButton
+                                className="h-auto py-2 cursor-pointer"
+                                onClick={() => onSelectAgent?.(agent.id)}
+                                asChild
+                            >
                                 <div>
                                     <div className="relative">
                                         <Avatar className="size-8 rounded-lg">
