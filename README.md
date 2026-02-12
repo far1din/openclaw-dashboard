@@ -2,7 +2,7 @@
 
 # OpenNeet
 
-**OpenNeet** is a modern, real-time dashboard designed for managing and interacting with OpenClaw agents. Built with performance and user experience in mind, it provides a seamless interface for monitoring agent activities, managing sessions, and engaging in direct communication with your AI workforce.
+**OpenNeet** is a modern, real-time dashboard designed for managing and interacting with [OpenClaw](https://openclaw.ai/) agents. Built with performance and user experience in mind, it provides a seamless interface for monitoring agent activities, managing sessions, and engaging in direct communication with your AI workforce.
 
 <img src="public/logox.png" alt="OpenNeet Logo" width="369" />
 
@@ -70,6 +70,7 @@
 
 To learn more about the technologies used in this project, take a look at the following resources:
 
+- [OpenClaw Getting Started](https://docs.openclaw.ai/start/getting-started) - set up and run OpenClaw.
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Tailwind CSS Documentation](https://tailwindcss.com/docs) - learn about utility-first CSS.
 - [Radix UI Documentation](https://www.radix-ui.com/docs/primitives/overview/introduction) - learn about accessible UI primitives.
