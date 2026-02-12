@@ -12,7 +12,7 @@ interface ChatInputProps {
 
 export default function ChatInput({ inputValue, setInputValue, handleSend, loading }: ChatInputProps) {
     return (
-        <div className="p-4 bg-background pb-6">
+        <div className="p-4 bg-background pb-6 shadow-[0_21px_29px_40px] shadow-background">
             <div className="max-w-4xl mx-auto w-full relative">
                 <div className="relative flex items-end w-full p-2 bg-muted/40 border border-border/40 rounded-3xl focus-within:ring-1 focus-within:ring-ring/20 focus-within:bg-muted/60 transition-all shadow-sm">
                     {/* Placeholder for future attachments */}
