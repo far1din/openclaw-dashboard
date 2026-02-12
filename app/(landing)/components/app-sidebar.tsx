@@ -18,6 +18,7 @@ import {
     SidebarRail,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AgentList } from "./agent-list";
 
 // Matches the actual Gateway sessions.list response shape
 type Session = {
@@ -111,6 +112,7 @@ export function AppSidebar({ onSelectSession, activeSessionKey, ...props }: AppS
                 </div>
             </SidebarHeader>
             <SidebarContent>
+                <AgentList />
                 <SidebarGroup>
                     <SidebarGroupLabel>Sessions</SidebarGroupLabel>
                     <SidebarMenu>
