@@ -13,15 +13,12 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from "@/components/ui/dialog";
+import { AddAgentDialog } from "./add-agent-dialog";
+import { DeleteAgentDialog } from "./delete-agent-dialog";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 type AgentStatus = "active" | "idle" | "unknown";
 
@@ -35,93 +32,53 @@ type Agent = {
     sessionCount: number;
 };
 
+type RawAgent = {
+    id: string;
+    name?: string;
+    emoji?: string;
+    workspace?: string;
+};
+
 const ACTIVE_THRESHOLD_MS = 60 * 60 * 1000;
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export function AgentList() {
     const { call, isConnected, helloPayload } = useOpenClaw();
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Add agent dialog state
     const [addOpen, setAddOpen] = useState(false);
-    const [newAgentId, setNewAgentId] = useState("");
-    const [newAgentWorkspace, setNewAgentWorkspace] = useState("");
-    const [addLoading, setAddLoading] = useState(false);
-    const [addError, setAddError] = useState<string | null>(null);
-
-    // Delete state
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-    const [deleteLoading, setDeleteLoading] = useState(false);
+
+    // ---- Fetch & merge agents with session activity ----
 
     const fetchAgents = useCallback(async () => {
         if (!isConnected) return;
         setLoading(true);
 
-        const methods: string[] = helloPayload?.features?.methods ?? [];
-        console.log("[AgentList] Available gateway methods:", methods);
-
         try {
-            let rawAgents: RawAgent[] = [];
+            // 1. Get raw agent list (try multiple sources)
+            let rawAgents = await fetchRawAgents(call, helloPayload);
 
-            try {
-                const res: any = await call("agents.list");
-                console.log("[AgentList] agents.list response:", res);
-                rawAgents = parseAgentsList(res);
-            } catch (err: any) {
-                console.log("[AgentList] agents.list not available:", err?.message || err?.code || err);
-            }
+            // 2. Get session activity data
+            const agentActivity = await fetchAgentActivity(call);
 
+            // 3. Fallback: derive agents from session keys
             if (rawAgents.length === 0) {
-                try {
-                    const res: any = await call("status");
-                    console.log("[AgentList] status response (full):", JSON.stringify(res, null, 2));
-                    rawAgents = parseAgentsFromStatus(res);
-                    if (rawAgents.length === 0) {
-                        rawAgents = deepScanForAgents(res);
-                    }
-                } catch (err: any) {
-                    console.log("[AgentList] status failed:", err?.message || err?.code || err);
-                }
+                rawAgents = [...agentActivity.keys()].map((id) => ({ id }));
             }
 
-            let sessionList: any[] = [];
-            try {
-                const sessionsRes: any = await call("sessions.list", { limit: 200 });
-                sessionList = sessionsRes?.sessions ?? (Array.isArray(sessionsRes) ? sessionsRes : []);
-            } catch (err: any) {
-                console.log("[AgentList] sessions.list failed:", err?.message || err?.code || err);
-            }
-
-            const agentActivity = new Map<string, { lastActivity: number; sessionCount: number }>();
-            for (const s of sessionList) {
-                const parts = (s.key || "").split(":");
-                if (parts[0] === "agent" && parts[1]) {
-                    const agentId = parts[1];
-                    const existing = agentActivity.get(agentId);
-                    const ts = s.updatedAt ?? 0;
-                    agentActivity.set(agentId, {
-                        lastActivity: Math.max(existing?.lastActivity ?? 0, ts),
-                        sessionCount: (existing?.sessionCount ?? 0) + 1,
-                    });
-                }
-            }
-
-            if (rawAgents.length === 0) {
-                console.log("[AgentList] Falling back to session-key derivation");
-                const ids = [...agentActivity.keys()];
-                rawAgents = ids.map((id) => ({ id }));
-            }
-
+            // 4. Merge + sort
             const now = Date.now();
             const merged: Agent[] = rawAgents.map((a) => {
                 const activity = agentActivity.get(a.id);
                 const lastActivity = activity?.lastActivity;
                 const sessionCount = activity?.sessionCount ?? 0;
-
-                let status: AgentStatus = "idle";
-                if (lastActivity && now - lastActivity < ACTIVE_THRESHOLD_MS) {
-                    status = "active";
-                }
+                const status: AgentStatus =
+                    lastActivity && now - lastActivity < ACTIVE_THRESHOLD_MS ? "active" : "idle";
 
                 return { ...a, status, lastActivity, sessionCount };
             });
@@ -147,61 +104,21 @@ export function AgentList() {
         }
     }, [isConnected, fetchAgents]);
 
-    // ---- Add agent handler ----
-    const handleAddAgent = async () => {
-        const id = newAgentId.trim();
-        if (!id) return;
+    // ---- Handlers passed to dialogs ----
 
-        setAddLoading(true);
-        setAddError(null);
-
-        try {
-            const params: any = { id };
-            const workspace = newAgentWorkspace.trim();
-            if (workspace) params.workspace = workspace;
-
-            await call("agents.create", params);
-            console.log("[AgentList] Agent created:", id);
-
-            // Reset form and close dialog
-            setNewAgentId("");
-            setNewAgentWorkspace("");
-            setAddOpen(false);
-
-            // Refresh list
-            await fetchAgents();
-        } catch (err: any) {
-            console.error("[AgentList] Failed to create agent:", err);
-            setAddError(err?.message || err?.code || "Failed to create agent");
-        } finally {
-            setAddLoading(false);
-        }
+    const handleCreate = async (id: string, workspace?: string) => {
+        const params: Record<string, string> = { id };
+        if (workspace) params.workspace = workspace;
+        await call("agents.create", params);
+        await fetchAgents();
     };
 
-    // ---- Delete agent handler ----
-    const handleDeleteAgent = async (agentId: string) => {
-        setDeleteLoading(true);
-        try {
-            await call("agents.delete", { id: agentId });
-            console.log("[AgentList] Agent deleted:", agentId);
-            setDeleteTarget(null);
-            await fetchAgents();
-        } catch (err: any) {
-            console.error("[AgentList] Failed to delete agent:", err);
-            alert(`Failed to delete agent: ${err?.message || err?.code || "Unknown error"}`);
-        } finally {
-            setDeleteLoading(false);
-        }
+    const handleDelete = async (agentId: string) => {
+        await call("agents.delete", { agentId });
+        await fetchAgents();
     };
 
-    const formatLastActive = (ts?: number) => {
-        if (!ts) return "No activity";
-        const diff = Date.now() - ts;
-        if (diff < 60_000) return "Just now";
-        if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-        if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-        return `${Math.floor(diff / 86_400_000)}d ago`;
-    };
+    // ---- Render ----
 
     return (
         <>
@@ -212,18 +129,14 @@ export function AgentList() {
                         variant="ghost"
                         size="icon-xs"
                         className="mr-2 text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                            setAddError(null);
-                            setNewAgentId("");
-                            setNewAgentWorkspace("");
-                            setAddOpen(true);
-                        }}
+                        onClick={() => setAddOpen(true)}
                         disabled={!isConnected}
                         title="Add agent"
                     >
                         <Plus className="size-3.5" />
                     </Button>
                 </div>
+
                 <SidebarMenu>
                     {!isConnected && (
                         <div className="text-center text-sm text-muted-foreground py-4">Connecting...</div>
@@ -236,6 +149,7 @@ export function AgentList() {
                     {isConnected && !loading && agents.length === 0 && (
                         <div className="text-center text-sm text-muted-foreground py-4">No agents found</div>
                     )}
+
                     {agents.map((agent) => (
                         <SidebarMenuItem key={agent.id} className="group/agent">
                             <SidebarMenuButton className="h-auto py-2 cursor-default" asChild>
@@ -254,6 +168,7 @@ export function AgentList() {
                                             }`}
                                         />
                                     </div>
+
                                     <div className="grid flex-1 text-left text-sm leading-tight">
                                         <div className="flex items-center gap-1.5">
                                             <span className="truncate font-medium">{agent.name || agent.id}</span>
@@ -279,6 +194,7 @@ export function AgentList() {
                                                 }`}
                                         </span>
                                     </div>
+
                                     <Button
                                         variant="ghost"
                                         size="icon-xs"
@@ -298,99 +214,89 @@ export function AgentList() {
                 </SidebarMenu>
             </SidebarGroup>
 
-            {/* Add Agent Dialog */}
-            <Dialog open={addOpen} onOpenChange={setAddOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Add Agent</DialogTitle>
-                        <DialogDescription>
-                            Create a new isolated agent with its own workspace, auth, and routing.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-2">
-                        <div className="grid gap-2">
-                            <label htmlFor="agent-id" className="text-sm font-medium">
-                                Agent ID <span className="text-destructive">*</span>
-                            </label>
-                            <Input
-                                id="agent-id"
-                                placeholder="e.g. work, assistant, research"
-                                value={newAgentId}
-                                onChange={(e) => setNewAgentId(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && handleAddAgent()}
-                                disabled={addLoading}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <label htmlFor="agent-workspace" className="text-sm font-medium">
-                                Workspace Path <span className="text-muted-foreground text-xs">(optional)</span>
-                            </label>
-                            <Input
-                                id="agent-workspace"
-                                placeholder="e.g. ~/.openclaw/workspace-work"
-                                value={newAgentWorkspace}
-                                onChange={(e) => setNewAgentWorkspace(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && handleAddAgent()}
-                                disabled={addLoading}
-                            />
-                            <p className="text-xs text-muted-foreground">Leave empty for the default workspace path.</p>
-                        </div>
-                        {addError && <p className="text-sm text-destructive">{addError}</p>}
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setAddOpen(false)} disabled={addLoading}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleAddAgent} disabled={!newAgentId.trim() || addLoading}>
-                            {addLoading ? <Loader2 className="size-4 animate-spin" /> : "Create Agent"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <AddAgentDialog open={addOpen} onOpenChange={setAddOpen} onSubmit={handleCreate} />
 
-            {/* Delete Confirmation Dialog */}
-            <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete Agent</DialogTitle>
-                        <DialogDescription>
-                            Are you sure you want to delete agent <strong>{deleteTarget}</strong>? This will remove its
-                            workspace and all associated data. This action cannot be undone.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            onClick={() => deleteTarget && handleDeleteAgent(deleteTarget)}
-                            disabled={deleteLoading}
-                        >
-                            {deleteLoading ? <Loader2 className="size-4 animate-spin" /> : "Delete Agent"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <DeleteAgentDialog
+                agentId={deleteTarget}
+                onOpenChange={(open) => !open && setDeleteTarget(null)}
+                onConfirm={handleDelete}
+            />
         </>
     );
 }
 
 // ---------------------------------------------------------------------------
-// Types + parsing helpers
+// Data fetching helpers
 // ---------------------------------------------------------------------------
 
-type RawAgent = {
-    id: string;
-    name?: string;
-    emoji?: string;
-    workspace?: string;
-};
+async function fetchRawAgents(
+    call: (method: string, params?: any) => Promise<any>,
+    helloPayload: any
+): Promise<RawAgent[]> {
+    const methods: string[] = helloPayload?.features?.methods ?? [];
+    console.log("[AgentList] Available gateway methods:", methods);
 
-function parseAgentsList(res: any): RawAgent[] {
-    const list = Array.isArray(res) ? res : res?.agents ?? res?.list ?? [];
-    if (!Array.isArray(list)) return [];
-    return list.map(toRawAgent);
+    // Try agents.list first
+    try {
+        const res = await call("agents.list");
+        const list = Array.isArray(res) ? res : res?.agents ?? res?.list ?? [];
+        if (Array.isArray(list) && list.length > 0) return list.map(toRawAgent);
+    } catch {
+        // not available
+    }
+
+    // Fall back to status endpoint
+    try {
+        const res = await call("status");
+        const agents = parseAgentsFromStatus(res);
+        if (agents.length > 0) return agents;
+        return deepScanForAgents(res);
+    } catch {
+        // not available
+    }
+
+    return [];
+}
+
+async function fetchAgentActivity(
+    call: (method: string, params?: any) => Promise<any>
+): Promise<Map<string, { lastActivity: number; sessionCount: number }>> {
+    const map = new Map<string, { lastActivity: number; sessionCount: number }>();
+
+    try {
+        const res = await call("sessions.list", { limit: 200 });
+        const sessions = res?.sessions ?? (Array.isArray(res) ? res : []);
+
+        for (const s of sessions) {
+            const parts = (s.key || "").split(":");
+            if (parts[0] === "agent" && parts[1]) {
+                const id = parts[1];
+                const existing = map.get(id);
+                const ts = s.updatedAt ?? 0;
+                map.set(id, {
+                    lastActivity: Math.max(existing?.lastActivity ?? 0, ts),
+                    sessionCount: (existing?.sessionCount ?? 0) + 1,
+                });
+            }
+        }
+    } catch {
+        // not available
+    }
+
+    return map;
+}
+
+// ---------------------------------------------------------------------------
+// Parsing helpers
+// ---------------------------------------------------------------------------
+
+function toRawAgent(a: any): RawAgent {
+    return {
+        id: a.id || a.agentId || "unknown",
+        name: a.identity?.name || a.name,
+        emoji: a.identity?.emoji || a.emoji,
+        workspace: a.identity?.workspace || a.workspace,
+    };
 }
 
 function parseAgentsFromStatus(res: any): RawAgent[] {
@@ -423,6 +329,7 @@ function parseAgentsFromStatus(res: any): RawAgent[] {
 function deepScanForAgents(obj: any): RawAgent[] {
     const results: RawAgent[] = [];
     const seen = new Set<string>();
+
     function walk(val: any, d: number) {
         if (d > 5 || !val || typeof val !== "object") return;
         if (val.id && val.identity && typeof val.identity === "object") {
@@ -438,17 +345,9 @@ function deepScanForAgents(obj: any): RawAgent[] {
         }
         for (const key of Object.keys(val)) walk(val[key], d + 1);
     }
+
     walk(obj, 0);
     return results;
-}
-
-function toRawAgent(a: any): RawAgent {
-    return {
-        id: a.id || a.agentId || "unknown",
-        name: a.identity?.name || a.name,
-        emoji: a.identity?.emoji || a.emoji,
-        workspace: a.identity?.workspace || a.workspace,
-    };
 }
 
 function extractIdentity(data: any): Partial<RawAgent> {
@@ -457,4 +356,13 @@ function extractIdentity(data: any): Partial<RawAgent> {
         emoji: data?.identity?.emoji || data?.emoji,
         workspace: data?.identity?.workspace || data?.workspace,
     };
+}
+
+function formatLastActive(ts?: number): string {
+    if (!ts) return "No activity";
+    const diff = Date.now() - ts;
+    if (diff < 60_000) return "Just now";
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+    return `${Math.floor(diff / 86_400_000)}d ago`;
 }

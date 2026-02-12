@@ -1,0 +1,114 @@
+"use client";
+
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
+
+interface AddAgentDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onSubmit: (id: string, workspace?: string) => Promise<void>;
+}
+
+export function AddAgentDialog({ open, onOpenChange, onSubmit }: AddAgentDialogProps) {
+    const [agentId, setAgentId] = useState("");
+    const [workspace, setWorkspace] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const reset = () => {
+        setAgentId("");
+        setWorkspace("");
+        setError(null);
+    };
+
+    const handleOpenChange = (next: boolean) => {
+        if (!next) reset();
+        onOpenChange(next);
+    };
+
+    const handleSubmit = async () => {
+        const id = agentId.trim();
+        if (!id) return;
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            await onSubmit(id, workspace.trim() || undefined);
+            reset();
+            onOpenChange(false);
+        } catch (err: any) {
+            setError(err?.message || err?.code || "Failed to create agent");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add Agent</DialogTitle>
+                    <DialogDescription>
+                        Create a new isolated agent with its own workspace, auth, and routing.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid gap-4 py-2">
+                    <div className="grid gap-2">
+                        <label htmlFor="agent-id" className="text-sm font-medium">
+                            Agent ID <span className="text-destructive">*</span>
+                        </label>
+                        <Input
+                            id="agent-id"
+                            placeholder="e.g. work, assistant, research"
+                            value={agentId}
+                            onChange={(e) => setAgentId(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                            disabled={loading}
+                        />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <label htmlFor="agent-workspace" className="text-sm font-medium">
+                            Workspace Path{" "}
+                            <span className="text-muted-foreground text-xs">(optional)</span>
+                        </label>
+                        <Input
+                            id="agent-workspace"
+                            placeholder="e.g. ~/.openclaw/workspace-work"
+                            value={workspace}
+                            onChange={(e) => setWorkspace(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                            disabled={loading}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Leave empty for the default workspace path.
+                        </p>
+                    </div>
+
+                    {error && <p className="text-sm text-destructive">{error}</p>}
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleSubmit} disabled={!agentId.trim() || loading}>
+                        {loading ? <Loader2 className="size-4 animate-spin" /> : "Create Agent"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
