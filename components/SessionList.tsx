@@ -6,12 +6,12 @@ import { twMerge } from "tailwind-merge";
 
 // Matches the actual Gateway sessions.list response shape
 type Session = {
-    key: string;                 // e.g. "agent:myAgent:main"
-    friendlyId?: string;         // short alias
-    label?: string;              // user-set label
-    derivedTitle?: string;       // AI-generated title from conversation
-    displayName?: string;        // channel display name
-    updatedAt?: number;          // unix timestamp (ms)
+    key: string; // e.g. "agent:myAgent:main"
+    friendlyId?: string; // short alias
+    label?: string; // user-set label
+    derivedTitle?: string; // AI-generated title from conversation
+    displayName?: string; // channel display name
+    updatedAt?: number; // unix timestamp (ms)
     totalTokens?: number;
     contextTokens?: number;
     [key: string]: any;
