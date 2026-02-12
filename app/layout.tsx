@@ -9,8 +9,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-    title: "OpenClaw Admin",
-    description: "OpenClaw Admin",
+    title: "OpenNeet",
+    description: "OpenNeet",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
